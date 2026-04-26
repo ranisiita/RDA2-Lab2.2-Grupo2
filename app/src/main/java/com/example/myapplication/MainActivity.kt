@@ -1,16 +1,34 @@
 package com.example.myapplication
 
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.livedata.observeAsState
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.createSavedStateHandle
+import androidx.lifecycle.viewmodel.CreationExtras
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.myapplication.data.UserPreferences
+import com.example.myapplication.ui.FormViewModel
 import com.example.myapplication.ui.theme.MyApplicationTheme
 
 class MainActivity : ComponentActivity() {
@@ -20,10 +38,21 @@ class MainActivity : ComponentActivity() {
         setContent {
             MyApplicationTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        name = "Android",
-                        modifier = Modifier.padding(innerPadding)
+                    val context = LocalContext.current
+                    val userPrefs = remember { UserPreferences(context) }
+                    val viewModel: FormViewModel = viewModel(
+                        factory = object : ViewModelProvider.Factory {
+                            override fun <T : ViewModel> create(modelClass: Class<T>, extras: CreationExtras): T {
+                                val savedStateHandle = extras.createSavedStateHandle()
+                                @Suppress("UNCHECKED_CAST")
+                                return FormViewModel(savedStateHandle, userPrefs) as T
+                            }
+                        }
                     )
+                    
+                    Column(modifier = Modifier.padding(innerPadding)) {
+                        ResilientFormScreen(viewModel = viewModel)
+                    }
                 }
             }
         }
@@ -31,17 +60,30 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    MyApplicationTheme {
-        Greeting("Android")
+fun ResilientFormScreen(viewModel: FormViewModel) {
+    val nameDisk by viewModel.nameFromDisk.observeAsState("")
+    var nameInput by remember { mutableStateOf(nameDisk) }
+// Implementación de Predictive Back (Navegación de Android 16)
+    BackHandler(enabled = nameInput.isNotEmpty()) {
+// Lógica para interceptar el regreso si hay cambios sin guardar
+        Log.d("NAV", "El usuario intentó retroceder con datos en el formulario" )
+    }
+    Column(modifier = Modifier.fillMaxSize().padding(24.dp)) {
+        Text("Borrador de Perfil", style = MaterialTheme.typography.headlineMedium)
+// Campo persistido en DISCO (DataStore)
+        OutlinedTextField(
+            value = nameInput,
+            onValueChange = {
+                nameInput = it
+                viewModel.saveName(it)
+            },
+            label = { Text("Nombre (Persiste al cerrar app)") }
+        )
+// Campo persistido en MEMORIA/PROCESO (SavedStateHandle)
+        OutlinedTextField(
+            value = viewModel.email,
+            onValueChange = { viewModel.updateEmail(it) },
+            label = { Text("Email (Persiste al rotar/muerte proceso)") }
+        )
     }
 }
