@@ -23,7 +23,20 @@ class FormViewModel(
     }
     // Estado que sobrevive a Cierre de App (DataStore)
     val nameFromDisk = userPrefs.userName.asLiveData()
+    
+    // Estado para el indicador visual (reto)
+    var showSaveIcon by mutableStateOf(false)
+        private set
+        
+    private var saveJob: kotlinx.coroutines.Job? = null
+
     fun saveName(newName: String) {
-        viewModelScope.launch { userPrefs.saveName(newName) }
+        saveJob?.cancel() // Cancela el temporizador anterior si el usuario sigue escribiendo
+        saveJob = viewModelScope.launch { 
+            userPrefs.saveName(newName) 
+            showSaveIcon = true
+            kotlinx.coroutines.delay(1000)
+            showSaveIcon = false
+        }
     }
 }

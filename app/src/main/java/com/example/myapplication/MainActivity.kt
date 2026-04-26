@@ -9,6 +9,8 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -62,7 +64,15 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun ResilientFormScreen(viewModel: FormViewModel) {
     val nameDisk by viewModel.nameFromDisk.observeAsState("")
-    var nameInput by remember { mutableStateOf(nameDisk) }
+    var nameInput by remember { mutableStateOf("") }
+    
+    // Esto hace que cuando DataStore termine de cargar (y nameDisk tenga el valor real), 
+    // se lo pasemos a nuestro cuadro de texto.
+    androidx.compose.runtime.LaunchedEffect(nameDisk) {
+        if (nameDisk.isNotEmpty() && nameInput.isEmpty()) {
+            nameInput = nameDisk
+        }
+    }
 // Implementación de Predictive Back (Navegación de Android 16)
     BackHandler(enabled = nameInput.isNotEmpty()) {
 // Lógica para interceptar el regreso si hay cambios sin guardar
@@ -77,13 +87,26 @@ fun ResilientFormScreen(viewModel: FormViewModel) {
                 nameInput = it
                 viewModel.saveName(it)
             },
-            label = { Text("Nombre (Persiste al cerrar app)") }
+            label = { Text("Nombre") },
+            trailingIcon = {
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = viewModel.showSaveIcon,
+                    enter = androidx.compose.animation.fadeIn(),
+                    exit = androidx.compose.animation.fadeOut()
+                ) {
+                    androidx.compose.material3.Icon(
+                        imageVector = androidx.compose.material.icons.Icons.Default.Check,
+                        contentDescription = "Guardado en disco",
+                        tint = androidx.compose.ui.graphics.Color(0xFF4CAF50) // Verde
+                    )
+                }
+            }
         )
 // Campo persistido en MEMORIA/PROCESO (SavedStateHandle)
         OutlinedTextField(
             value = viewModel.email,
             onValueChange = { viewModel.updateEmail(it) },
-            label = { Text("Email (Persiste al rotar/muerte proceso)") }
+            label = { Text("Email") }
         )
     }
 }
